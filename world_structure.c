@@ -2,14 +2,16 @@
 #include "structures.h"
 
 /**
- * create a World_t of size from read_value()
- * initialize the cells with a random number between 0 and 3 for the status and 1 for the days_infected
- * @return a pointer of World_t
+ * create a World_t of size from the config structure
+ * initialize the cells with ratios got from the config structure
+ * @param config_t* the config structure
+ * @return a pointer of World_t or NULL on error
  */
 World_t create_world_t (Config_t* config){
 
+    pthread_barrier_init(&childBarrier,NULL,NB_THREAD);
     #ifdef TRACE
-        printf("\t*************** create_world(%d)\n",(config->CELLS));
+        printf("\n\t*************** create_world(%d)\n",(config->CELLS));
     #endif
 
     //to generate random numbers
@@ -20,13 +22,13 @@ World_t create_world_t (Config_t* config){
 
     World_t myWorld = (Cell_t***) malloc(sizeof(Cell_t**)*(config->CELLS));
     if ( myWorld == NULL){
-        fprintf(stderr, "(create_world_t) memory allocation failled (world_t) %d Bytes Aborting...\n",(int)sizeof(Cell_t*)*(config->CELLS));
+        fprintf(stderr, "\n(create_world_t) memory allocation failed (world_t) %d Bytes\n",(int)sizeof(Cell_t*)*(config->CELLS));
         return NULL;
     }
     for (i = 0;  i<(config->CELLS) ; i++) {
-        myWorld[i] = (Cell_t**) malloc(sizeof(Cell_t*)*(config->CELLS)*(config->CELLS));
+        myWorld[i] = (Cell_t**) malloc(sizeof(Cell_t*)*(config->CELLS));
         if ( myWorld[i] == NULL){
-            fprintf(stderr, "(create_world_t) memory allocation failled (world_t*) %d Bytes Aborting...\n",(int)sizeof(Cell_t*)*(config->CELLS)*(config->CELLS));
+            fprintf(stderr, "\n(create_world_t) Memory allocation failed (world_t*) %d Bytes\n",(int)sizeof(Cell_t*)*(config->CELLS));
             return NULL;
         }
     }
@@ -36,7 +38,7 @@ World_t create_world_t (Config_t* config){
         for (j = 0; j < (config->CELLS); j++) {
             Cell_t* my_cell = (Cell_t*) malloc(sizeof(Cell_t));
             if ( my_cell == NULL ){
-                fprintf(stderr, "(create_world_t) memory allocation failled (Cell_t)! Aborting...\n");
+                fprintf(stderr, "\n(create_world_t) memory allocation failed (Cell_t)!\n");
                 return NULL;
             }
             if (rand() % 100<config->INFECTED)	{
@@ -59,47 +61,43 @@ World_t create_world_t (Config_t* config){
 }
 
 /**
- * @param current_world !! WARNING!!! this param will be free()
- * @return the next world
+ * process a step
+ * @param current_world
+ * @return the next world or NULL on error
  */
-World_t next_world_t(World_t current_world,Config_t* config) {
+void* all_steps(void *param) {
+
+    ThreadParam_t* myParams = (ThreadParam_t*) param;
+    World_t current_world = myParams->world;
+    World_t tempWorld = myParams->tempWorld;
+    World_t res_world = NULL;
+    Config_t* config = myParams->config;
+    int threadNum = myParams->threadNum;
+    int currentStep=0;
+    int i, j,k;
+    Cell_t* neighbor[8];
+    int infection_prob;
+    status_t temp_status;
 
 #ifdef TRACE
-     printf("\t*************** next_world()\n");
+    printf("\n\t*************** all_step(%d)\n",threadNum);
 #endif
+    for (currentStep=1;currentStep<config->STEPS;currentStep++){
 
-    int i, j;
-    World_t new_world = (Cell_t***) malloc(sizeof(Cell_t**)*(config->CELLS));
-    if ( new_world == NULL ){
-        fprintf(stderr, "(next_world_t) memory allocation failled (World_t)! Aborting...\n");
-        return NULL; /* indicate failure.*/
-    }
-    for (i = 0;  i<(config->CELLS) ; i++) {
-        new_world[i] = (Cell_t**) malloc(sizeof(Cell_t*)*(config->CELLS)*(config->CELLS));
-        if ( new_world[i] == NULL ){
-            fprintf(stderr, "(next_world_t) memory allocation failled (World_t*) %d Bytes Aborting...\n",(int)sizeof(Cell_t*)*(config->CELLS)*(config->CELLS));
-            exit(EXIT_FAILURE); /* indicate failure.*/
-        }
-    }
-
-
-    for (i = 0; i < (config->CELLS); i++) {
+        for (i = threadNum*(config->CELLS/NB_THREAD); i < (config->CELLS)/(NB_THREAD)*(threadNum+1); i++) {
         for (j = 0; j < (config->CELLS); j++) {
-            Cell_t* my_cell = (Cell_t*) malloc(sizeof(Cell_t));
-            if ( my_cell == NULL ){
-                fprintf(stderr, "(next_world_t) memory allocation failled (Cell_t) Aborting...\n");
-                exit(EXIT_FAILURE); /* indicate failure.*/
-            }
-
-            new_world[i][j]=my_cell;
-
-            int infection_prob;
-            status_t temp_status;
 
             if (i % 100 == config->AGING)current_world[i][j]->age++;
 
             temp_status = current_world[i][j]->status;
-
+            neighbor[0]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[1]= current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[2]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[3]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)];
+            neighbor[4]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)];
+            neighbor[5]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
+            neighbor[6]= current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
+            neighbor[7]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
             //todo death  0.0012%
             switch (current_world[i][j]->status) {
                 case EMPTY:
@@ -109,30 +107,17 @@ World_t next_world_t(World_t current_world,Config_t* config) {
                     break;
                 case HEALTHY:
                     infection_prob = 0;
-                    if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
-                    if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == DEAD_INFECTIOUS) infection_prob = +config->INFECTIOUS_CONTAMINATION;
-                    else if (current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)]->status == NATURAL_DEAD) infection_prob = +config->NATURAL_CONTAMINATION;
+                    for (k=0;k<8;k++){
+                        if (neighbor[k]->status == DEAD_INFECTIOUS) infection_prob =+ config->INFECTIOUS_CONTAMINATION;
+                        if (neighbor[k]->status == NATURAL_DEAD) infection_prob =+ config->NATURAL_CONTAMINATION;
+                        if (neighbor[k]->status == INFECTED) infection_prob =+ config->INFECTED_SPREADING;
+                    }
                     if (rand() % 100 < infection_prob) {
                         temp_status = INFECTED;
                     }
                     break;
                 case INFECTED:
-                    if (current_world[i][j]->state_duration ==config->INFECTED_STEP3) {
-                        temp_status = PROTECTED;
-                    }else if (current_world[i][j]->state_duration <= config->INFECTED_STEP1) {
+                    if (current_world[i][j]->state_duration <= config->INFECTED_STEP1) {
                         if (rand() % 100 < config->INFECTIOUSNESS1) {
                             temp_status = DEAD_INFECTIOUS;
                         }
@@ -140,10 +125,12 @@ World_t next_world_t(World_t current_world,Config_t* config) {
                         if (rand() % 100 < config->INFECTIOUSNESS2) {
                             temp_status = DEAD_INFECTIOUS;
                         }
-                    }else {
+                    }else if (current_world[i][j]->state_duration <= config->INFECTED_STEP3) {
                         if (rand() % 100 < config->INFECTIOUSNESS3) {
                             temp_status = DEAD_INFECTIOUS;
                         }
+                    }else {
+                        temp_status = PROTECTED;
                     }
                     break;
                 case DEAD_INFECTIOUS:
@@ -160,16 +147,21 @@ World_t next_world_t(World_t current_world,Config_t* config) {
                     break;
                 default:
                     break;
-
             }
-            new_world[i][j]->state_duration = (current_world[i][j]->status == temp_status) ? current_world[i][j]->state_duration+1 : 0;
-            new_world[i][j]->status = temp_status;
-            new_world[i][j]->age = current_world[i][j]->age;
+            tempWorld[i][j]->state_duration = (current_world[i][j]->status == temp_status) ? current_world[i][j]->state_duration+1 : 0;
+            tempWorld[i][j]->status = temp_status;
+            tempWorld[i][j]->age = current_world[i][j]->age;
+        }
+        }
+        res_world=NULL;
+        pthread_barrier_wait(&allBarrier);
+        if(res_world==NULL) {
+            res_world = current_world;
+            current_world=tempWorld;
+            tempWorld = res_world;
         }
     }
-    delete_world_t(current_world, config);
-    //current_world =  new_world;
-    return new_world;
+    return myParams->world;
 }
 
 /**

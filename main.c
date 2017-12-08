@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     printf("\nNB cells: %d\nNB steps: %d\n",myConfig.CELLS,myConfig.STEPS);
     printf("Cleaning worlds folder\n");
 
-    printf("\nProcessing and exporting worlds");
+    printf("\nProcessing and exporting worlds\n");
 
 #ifdef TRACE
     printf("\nProcessing step and file writing step %d",currentStep);

@@ -66,7 +66,7 @@ int export_world_t(World_t my_world, int step, Config_t* myConfig) {
     FILE* backup_file = NULL;
     char fileName[255];
     sprintf(fileName, "%s%d%s",FILE_PREFIX, step,FILE_SUFFIX);
-    backup_file = fopen(fileName,"wb");
+    backup_file = fopen(fileName,"w");
 
     if ( backup_file == NULL ){
         fprintf(stderr, "\n(export_world_t) Cannot create the storage file.\n\tBe sure to have a worlds folder in the working directory!\n");
@@ -77,7 +77,7 @@ int export_world_t(World_t my_world, int step, Config_t* myConfig) {
     for (i=0;i<myConfig->CELLS;i++){
         for (j = 0;  j < myConfig->CELLS; j++) {
             temp = fprintf(backup_file,"%d",my_world[i][j]->status);
-            temp = fputc(my_world[i][j]->status,backup_file);
+            //temp = fputc(my_world[i][j]->status,backup_file);
             //temp = fwrite()
             if (temp<=0){
                 fprintf(stderr, "\n(export_world_t) Cannot write in the file!\n");

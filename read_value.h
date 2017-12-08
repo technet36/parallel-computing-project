@@ -11,7 +11,7 @@
 #include "structures.h"
 //#define TRACE
 #define FILE_PREFIX "worlds/world"
-#define FILE_SUFFIX ".bin"
+#define FILE_SUFFIX ".txt"
 #define CONFIG_FILENAME "config.ini"
 
 Config_t * testConfig(Config_t*);

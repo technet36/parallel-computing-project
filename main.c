@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
     }
     pthread_attr_destroy(&attr);
     while (currentStep < myConfig.STEPS){
-        printf("\nProcessing step and file writing step %d\n",currentStep);
+        //printf("\nProcessing step and file writing step %d\n",currentStep);
         pthread_barrier_wait(&allBarrier);
         if(export_world_t(tempWorld,currentStep ,&myConfig)==0){
             fprintf(stderr,"\nStep %d couldn't be exported, aborting ...\n\n\n",currentStep);

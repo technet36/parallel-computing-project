@@ -20,41 +20,30 @@ World_t create_world_t (Config_t* config){
     int i, j;
 
 
-    World_t myWorld = (Cell_t***) malloc(sizeof(Cell_t**)*(config->CELLS));
+    World_t myWorld = (World_t) malloc(sizeof(Cell_t)*(config->CELLS)*config->CELLS);
+
     if ( myWorld == NULL){
-        fprintf(stderr, "\n(create_world_t) memory allocation failed (world_t) %d Bytes\n",(int)sizeof(Cell_t*)*(config->CELLS));
+        fprintf(stderr, "\n(create_world_t) memory allocation failed (world_t) %d Bytes\n",(int)sizeof(Cell_t)*(config->CELLS)*(config->CELLS));
         return NULL;
     }
-    for (i = 0;  i<(config->CELLS) ; i++) {
-        myWorld[i] = (Cell_t**) malloc(sizeof(Cell_t*)*(config->CELLS));
-        if ( myWorld[i] == NULL){
-            fprintf(stderr, "\n(create_world_t) Memory allocation failed (world_t*) %d Bytes\n",(int)sizeof(Cell_t*)*(config->CELLS));
-            return NULL;
-        }
-    }
-
 
     for (i = 0; i < (config->CELLS); i++) {
         for (j = 0; j < (config->CELLS); j++) {
-            Cell_t* my_cell = (Cell_t*) malloc(sizeof(Cell_t));
-            if ( my_cell == NULL ){
-                fprintf(stderr, "\n(create_world_t) memory allocation failed (Cell_t)!\n");
-                return NULL;
-            }
+            Cell_t my_cell ;
             if (rand() % 100<config->INFECTED)	{
-                my_cell->status = INFECTED;
+                my_cell.status = INFECTED;
             }else if (rand() % 100 < config->EMPTY) {
-                my_cell->status = EMPTY;
+                my_cell.status = EMPTY;
             }else if (rand() % 100 < config->PROTECTED) {
-                my_cell->status = PROTECTED;
+                my_cell.status = PROTECTED;
             }
             else {
-                my_cell->status = HEALTHY;
+                my_cell.status = HEALTHY;
             }
             //printf("test : %d\n", my_cell->status);
-            my_cell->age = rand() % 100;
-            my_cell->state_duration = 0;
-            myWorld[i][j] = my_cell;
+            my_cell.age = rand() % 100;
+            my_cell.state_duration = 0;
+            myWorld[i*config->CELLS+j] = my_cell;
         }
     }
     return myWorld;
@@ -77,7 +66,7 @@ void* all_steps(void *param) {
     int i, j,k;
     Cell_t* neighbor[8];
     int infection_prob;
-    status_t temp_status;
+    Status_t temp_status;
 
 #ifdef TRACE
     printf("\n\t*************** all_step(%d)\n",threadNum);
@@ -87,19 +76,19 @@ void* all_steps(void *param) {
         for (i = threadNum*(config->CELLS/NB_THREAD); i < (config->CELLS)/(NB_THREAD)*(threadNum+1); i++) {
         for (j = 0; j < (config->CELLS); j++) {
 
-            if (i % 100 == config->AGING)current_world[i][j]->age++;
+            if (i % 100 == config->AGING)current_world[i*config->CELLS+j].age++;
 
-            temp_status = current_world[i][j]->status;
-            neighbor[0]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
-            neighbor[1]= current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
-            neighbor[2]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 1) % (config->CELLS)];
-            neighbor[3]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)];
-            neighbor[4]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)- 0) % (config->CELLS)];
-            neighbor[5]= current_world[(i +(config->CELLS)  - 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
-            neighbor[6]= current_world[(i +(config->CELLS)  - 0) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
-            neighbor[7]= current_world[(i +(config->CELLS)  + 1) % (config->CELLS)][(j +(config->CELLS)+ 1) % (config->CELLS)];
+            temp_status = (Status_t) current_world[i*config->CELLS+j].status;
+            neighbor[0]= &current_world[(i +(config->CELLS)  - 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[1]= &current_world[(i +(config->CELLS)  - 0) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[2]= &current_world[(i +(config->CELLS)  + 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 1) % (config->CELLS)];
+            neighbor[3]= &current_world[(i +(config->CELLS)  - 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 0) % (config->CELLS)];
+            neighbor[4]= &current_world[(i +(config->CELLS)  + 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 0) % (config->CELLS)];
+            neighbor[5]= &current_world[(i +(config->CELLS)  - 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)+ 1) % (config->CELLS)];
+            neighbor[6]= &current_world[(i +(config->CELLS)  - 0) % (config->CELLS)*config->CELLS+(j +(config->CELLS)+ 1) % (config->CELLS)];
+            neighbor[7]= &current_world[(i +(config->CELLS)  + 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)+ 1) % (config->CELLS)];
             //todo death  0.0012%
-            switch (current_world[i][j]->status) {
+            switch (current_world[i*config->CELLS+j].status) {
                 case EMPTY:
                     if (rand()% 10000 < config->BIRTH) {
                         temp_status = HEALTHY;
@@ -117,15 +106,15 @@ void* all_steps(void *param) {
                     }
                     break;
                 case INFECTED:
-                    if (current_world[i][j]->state_duration <= config->INFECTED_STEP1) {
+                    if (current_world[i*config->CELLS+j].state_duration <= config->INFECTED_STEP1) {
                         if (rand() % 100 < config->INFECTIOUSNESS1) {
                             temp_status = DEAD_INFECTIOUS;
                         }
-                    }else if (current_world[i][j]->state_duration <= config->INFECTED_STEP2) {
+                    }else if (current_world[i*config->CELLS+j].state_duration <= config->INFECTED_STEP2) {
                         if (rand() % 100 < config->INFECTIOUSNESS2) {
                             temp_status = DEAD_INFECTIOUS;
                         }
-                    }else if (current_world[i][j]->state_duration <= config->INFECTED_STEP3) {
+                    }else if (current_world[i*config->CELLS+j].state_duration <= config->INFECTED_STEP3) {
                         if (rand() % 100 < config->INFECTIOUSNESS3) {
                             temp_status = DEAD_INFECTIOUS;
                         }
@@ -134,23 +123,23 @@ void* all_steps(void *param) {
                     }
                     break;
                 case DEAD_INFECTIOUS:
-                    if (current_world[i][j]->state_duration == config->DEATH_DURATION)
+                    if (current_world[i*config->CELLS+j].state_duration == config->DEATH_DURATION)
                         temp_status = EMPTY;
                     break;
                 case NATURAL_DEAD:
-                    if (current_world[i][j]->state_duration == config->DEATH_DURATION)
+                    if (current_world[i*config->CELLS+j].state_duration == config->DEATH_DURATION)
                         temp_status = EMPTY;
                     break;
                 case PROTECTED:
-                    if (current_world[i][j]->state_duration == config->PROTECTION_DURATION)
+                    if (current_world[i*config->CELLS+j].state_duration == config->PROTECTION_DURATION)
                         temp_status = HEALTHY;
                     break;
                 default:
                     break;
             }
-            tempWorld[i][j]->state_duration = (current_world[i][j]->status == temp_status) ? current_world[i][j]->state_duration+1 : 0;
-            tempWorld[i][j]->status = temp_status;
-            tempWorld[i][j]->age = current_world[i][j]->age;
+            tempWorld[i*config->CELLS+j].state_duration =(char) ((current_world[i*config->CELLS+j].status == temp_status) ? current_world[i*config->CELLS+j].state_duration+1 :0);
+            tempWorld[i*config->CELLS+j].status = temp_status;
+            tempWorld[i*config->CELLS+j].age = current_world[i*config->CELLS+j].age;
         }
         }
         res_world=NULL;
@@ -168,7 +157,7 @@ void* all_steps(void *param) {
  * print the status of each cell
  * @param World to display
  */
-void display_world_t (World_t myWorld,Config_t* config) {
+void display_world_t (World_t myWorld,Config_t* config) {/*
 #ifdef TRACE
      printf("\t*************** display_world() \n");
 #endif
@@ -181,22 +170,23 @@ void display_world_t (World_t myWorld,Config_t* config) {
             printf("%d  ",myWorld[i][j]->status);
         }
     }
-    printf("\n");
+    printf("\n");*/
 }
 
 void delete_world_t(World_t my_world,Config_t* config) {
 #ifdef TRACE
     printf("\t*************** delete_world_t()\n");
 #endif
-
+    free(my_world);
+/*
     int i, j;
         for (i = 0; i < config->CELLS; i++) {
             for (j = 0; j < config->CELLS; j++) {
-                free(my_world[i][j]);
+                free(my_world[i*config->CELLS+j]);
             }
             free(my_world[i]);
         }
-        free(my_world);
+        free(my_world);*/
 
 }
 

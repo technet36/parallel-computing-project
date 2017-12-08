@@ -66,30 +66,24 @@ int export_world_t(World_t my_world, int step, Config_t* myConfig) {
     FILE* backup_file = NULL;
     char fileName[255];
     sprintf(fileName, "%s%d%s",FILE_PREFIX, step,FILE_SUFFIX);
-    backup_file = fopen(fileName,"w");
+    backup_file = fopen(fileName,"wb");
 
     if ( backup_file == NULL ){
         fprintf(stderr, "\n(export_world_t) Cannot create the storage file.\n\tBe sure to have a worlds folder in the working directory!\n");
-        return 0; /* indicate failure.*/
+        return 0;
     }
 
     int i,j , temp=1;
-    for (i=0;i<myConfig->CELLS;i++){
-        for (j = 0;  j < myConfig->CELLS; j++) {
-            temp = fprintf(backup_file,"%d",my_world[i][j]->status);
-            //temp = fputc(my_world[i][j]->status,backup_file);
-            //temp = fwrite()
-            if (temp<=0){
-                fprintf(stderr, "\n(export_world_t) Cannot write in the file!\n");
-                return 0; /* indicate failure.*/
-            }
-        }
+    temp = (int)fwrite(my_world, sizeof(Cell_t),myConfig->CELLS*myConfig->CELLS,backup_file);
+    if (temp!=myConfig->CELLS*myConfig->CELLS){
+        fprintf(stderr, "\n(export_world_t) Cannot write in the file!\n");
+        return 0;
     }
 
     temp = fclose(backup_file);
     if (temp!=0){
         fprintf(stderr, "\n(export_world_t) Cannot close the file!\n");
-        return 0; /* indicate failure.*/
+        return 0;
     }
     return 1;
 }

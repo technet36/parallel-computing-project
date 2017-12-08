@@ -9,7 +9,7 @@
 
 pthread_barrier_t allBarrier;
 
-typedef enum {EMPTY = 1	, HEALTHY = 2, INFECTED =3, DEAD_INFECTIOUS=4, NATURAL_DEAD=5, PROTECTED=6} status_t;
+typedef enum {EMPTY = 1	, HEALTHY = 2, INFECTED =3, DEAD_INFECTIOUS=4, NATURAL_DEAD=5, PROTECTED=6} Status_t;
 
 typedef struct {
     unsigned int CELLS;
@@ -33,12 +33,12 @@ typedef struct {
 }Config_t;
 
 typedef struct {
-    status_t status;
-    int age;
-    int state_duration;
+    char status;
+    char age;
+    char state_duration;
 } Cell_t;
 
-typedef Cell_t*** World_t;
+typedef Cell_t* World_t;
 
 typedef struct {
     Config_t* config;

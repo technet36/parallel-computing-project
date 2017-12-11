@@ -9,7 +9,7 @@
  */
 World_t create_world_t (Config_t* config){
 
-    pthread_barrier_init(&childBarrier,NULL,NB_THREAD);
+    pthread_barrier_init(&childBarrier,NULL,config->THREADS);
     #ifdef TRACE
         printf("\n\t*************** create_world(%d)\n",(config->CELLS));
     #endif
@@ -17,13 +17,13 @@ World_t create_world_t (Config_t* config){
     //to generate random numbers
     time_t t;
     srand((unsigned) time(&t));
-    int i, j;
+    long i, j;
 
 
     World_t myWorld = (World_t) malloc(sizeof(Cell_t)*(config->CELLS)*config->CELLS);
 
     if ( myWorld == NULL){
-        fprintf(stderr, "\n(create_world_t) memory allocation failed (world_t) %d Bytes\n",(int)sizeof(Cell_t)*(config->CELLS)*(config->CELLS));
+        fprintf(stderr, "\n(create_world_t) memory allocation failed (world_t) %lu Bytes\n",(int)sizeof(Cell_t)*(config->CELLS)*(config->CELLS));
         return NULL;
     }
 
@@ -51,32 +51,33 @@ World_t create_world_t (Config_t* config){
 
 /**
  * process a step
- * @param current_world
+ * @param config
  * @return the next world or NULL on error
  */
 void* all_steps(void *param) {
 
     ThreadParam_t* myParams = (ThreadParam_t*) param;
-    World_t current_world = myParams->world;
-    World_t tempWorld = myParams->tempWorld;
-    World_t res_world = NULL;
+    //World_t current_world = myParams->world;
+    //World_t tempWorld = myParams->tempWorld;
+    World_t resWorld;
     Config_t* config = myParams->config;
     int threadNum = myParams->threadNum;
-    int currentStep=0;
-    int i, j,k;
+    long currentStep=0;
+
+    long i, j,k;
     Cell_t* neighbor[8];
     int infection_prob;
     Status_t temp_status;
+    char tempAge;
 
 #ifdef TRACE
     printf("\n\t*************** all_step(%d)\n",threadNum);
 #endif
     for (currentStep=1;currentStep<config->STEPS;currentStep++){
 
-        for (i = threadNum*(config->CELLS/NB_THREAD); i < (config->CELLS)/(NB_THREAD)*(threadNum+1); i++) {
+        for (i = threadNum*(config->CELLS/config->THREADS); i < (config->CELLS)/(config->THREADS)*(threadNum+1); i++) {
         for (j = 0; j < (config->CELLS); j++) {
-
-            if (i % 100 == config->AGING)current_world[i*config->CELLS+j].age++;
+            tempAge = (i % 100 == (int)config->AGING)?current_world[i*config->CELLS+j].age:(char)(current_world[i*config->CELLS+j].age+1);
 
             temp_status = (Status_t) current_world[i*config->CELLS+j].status;
             neighbor[0]= &current_world[(i +(config->CELLS)  - 1) % (config->CELLS)*config->CELLS+(j +(config->CELLS)- 1) % (config->CELLS)];
@@ -139,16 +140,16 @@ void* all_steps(void *param) {
             }
             tempWorld[i*config->CELLS+j].state_duration =(char) ((current_world[i*config->CELLS+j].status == temp_status) ? current_world[i*config->CELLS+j].state_duration+1 :0);
             tempWorld[i*config->CELLS+j].status = temp_status;
-            tempWorld[i*config->CELLS+j].age = current_world[i*config->CELLS+j].age;
+            tempWorld[i*config->CELLS+j].age = tempAge;
         }
         }
-        res_world=NULL;
-        pthread_barrier_wait(&allBarrier);
-        if(res_world==NULL) {
-            res_world = current_world;
+        pthread_barrier_wait(&childBarrier);
+        if (threadNum==0) {
+            resWorld = current_world;
             current_world=tempWorld;
-            tempWorld = res_world;
+            tempWorld = resWorld;
         }
+        pthread_barrier_wait(&allBarrier);
     }
     return myParams->world;
 }
@@ -173,20 +174,12 @@ void display_world_t (World_t myWorld,Config_t* config) {/*
     printf("\n");*/
 }
 
-void delete_world_t(World_t my_world,Config_t* config) {
+void delete_world_t() {
 #ifdef TRACE
     printf("\t*************** delete_world_t()\n");
 #endif
-    free(my_world);
-/*
-    int i, j;
-        for (i = 0; i < config->CELLS; i++) {
-            for (j = 0; j < config->CELLS; j++) {
-                free(my_world[i*config->CELLS+j]);
-            }
-            free(my_world[i]);
-        }
-        free(my_world);*/
+    free(current_world);
+    free(tempWorld);
 
 }
 

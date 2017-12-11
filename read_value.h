@@ -10,14 +10,15 @@
 #include "errno.h"
 #include "structures.h"
 //#define TRACE
-#define FILE_PREFIX "worlds/world"
-#define FILE_SUFFIX ".bin"
 #define CONFIG_FILENAME "config.ini"
+#define EXPORT_FILENAME "world.bin"
 
 Config_t * testConfig(Config_t*);
 Config_t* initConfig(Config_t*);
 int read_value(char*);
 void clean_worlds_dir();
-int export_world_t(World_t my_world, int, Config_t*);
+int export_world_t(FILE*, Config_t*);
+void* initExport(Config_t*);
+int closeExport(FILE* backuFile,Config_t*);
 
 #endif //PARALLEL_COMPUTING_PROJECT_READ_VALUE_H

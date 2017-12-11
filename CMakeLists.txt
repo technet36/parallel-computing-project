@@ -3,7 +3,7 @@ project(parallel-computing-project-P)               # Create project "simple_exa
 set(CMAKE_CXX_STANDARD 11)            # Enable c++11 standard
 
 
-find_package (Threads)
+#find_package (Threads)
 set(SOURCE_FILES main.c structures.h
         world_structure.c world_structure.h
         read_value.c read_value.h

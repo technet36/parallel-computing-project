@@ -2,18 +2,21 @@
 #define PARALLEL_COMPUTING_PROJECT_STRUCTURES_H
 
 //#define TRACE
-#define NB_THREAD 4
+//#define NB_THREAD 4
 
 #include <pthread.h>
-
+#include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
 
 pthread_barrier_t allBarrier;
 
 typedef enum {EMPTY = 1	, HEALTHY = 2, INFECTED =3, DEAD_INFECTIOUS=4, NATURAL_DEAD=5, PROTECTED=6} Status_t;
 
 typedef struct {
-    unsigned int CELLS;
-    unsigned int STEPS;
+    unsigned long CELLS;
+    unsigned long STEPS;
+    unsigned int THREADS;
     unsigned int EMPTY;
     unsigned int INFECTED;
     unsigned int PROTECTED;
@@ -30,6 +33,7 @@ typedef struct {
     unsigned int INFECTIOUSNESS3;
     unsigned int PROTECTION_DURATION;
     unsigned int INFECTED_SPREADING;
+    unsigned int EXPORT;
 }Config_t;
 
 typedef struct {
@@ -47,5 +51,6 @@ typedef struct {
     int threadNum;
 }ThreadParam_t;
 
+World_t current_world,tempWorld;
 
 #endif //PARALLEL_COMPUTING_PROJECT_STRUCTURES_H

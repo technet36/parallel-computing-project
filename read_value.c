@@ -38,19 +38,10 @@ int read_value(char* valueName) {
 
 void clean_worlds_dir(){
 
-
 #ifdef TRACE
-    printf("\ncleaning");
+    printf("\n (clean_worlds_dir) suppr file : %s",EXPORT_FILENAME);
 #endif
-    char fileName[50];
-    int i=0;
-    do{
-        sprintf(fileName, "%s%d%s",FILE_PREFIX,i,FILE_SUFFIX);
-#ifdef TRACE
-        printf("\n  suppr: %s",fileName);
-#endif
-        i++;
-    }while (remove(fileName)==0);
+remove(EXPORT_FILENAME);
 
 }
 
@@ -61,29 +52,14 @@ void clean_worlds_dir(){
  * @param my_world, the current step, the config structure
  * @return 0 if error, 1 if ok
  */
-int export_world_t(World_t my_world, int step, Config_t* myConfig) {
-
-    FILE* backup_file = NULL;
-    char fileName[255];
-    sprintf(fileName, "%s%d%s",FILE_PREFIX, step,FILE_SUFFIX);
-    backup_file = fopen(fileName,"wb");
-
-    if ( backup_file == NULL ){
-        fprintf(stderr, "\n(export_world_t) Cannot create the storage file.\n\tBe sure to have a worlds folder in the working directory!\n");
-        return 0;
-    }
-
-    int i,j , temp=1;
-    temp = (int)fwrite(my_world, sizeof(Cell_t),myConfig->CELLS*myConfig->CELLS,backup_file);
-    if (temp!=myConfig->CELLS*myConfig->CELLS){
-        fprintf(stderr, "\n(export_world_t) Cannot write in the file!\n");
-        return 0;
-    }
-
-    temp = fclose(backup_file);
-    if (temp!=0){
-        fprintf(stderr, "\n(export_world_t) Cannot close the file!\n");
-        return 0;
+int export_world_t(FILE* backup_file, Config_t* myConfig) {
+    if (myConfig->EXPORT==1){
+        int temp;
+        temp = (int)fwrite(current_world, sizeof(Cell_t),myConfig->CELLS*myConfig->CELLS,backup_file);
+        if (temp!=myConfig->CELLS*myConfig->CELLS){
+            fprintf(stderr, "\n(export_world_t) Cannot write in the file!\n");
+            return 0;
+        }
     }
     return 1;
 }
@@ -102,7 +78,6 @@ Config_t* initConfig(Config_t* myConfig) {
 #endif
     int i=0,j=0;
     char output[256],varName[50],tempChar;
-
 
     //myConfig = (Config_t*) malloc(sizeof(Config_t));
     if ( myConfig == NULL){
@@ -124,9 +99,9 @@ Config_t* initConfig(Config_t* myConfig) {
             }
             varName[i] = '\0';
             if (strcmp(varName,"CELLS")==0){
-                myConfig->CELLS =(unsigned int)  atoi(fgets(output,20,fpointer));
+                myConfig->CELLS =(unsigned long)  atol(fgets(output,20,fpointer));
             }else if (strcmp(varName,"STEPS")==0){
-                myConfig->STEPS =(unsigned int)  atoi(fgets(output,20,fpointer));
+                myConfig->STEPS =(unsigned long)  atol(fgets(output,20,fpointer));
             }else if (strcmp(varName,"EMPTY")==0){
                 myConfig->EMPTY = (unsigned int) atoi(fgets(output,20,fpointer));
             }else if (strcmp(varName,"INFECTED")==0){
@@ -159,6 +134,10 @@ Config_t* initConfig(Config_t* myConfig) {
                 myConfig->PROTECTION_DURATION = (unsigned int) atoi(fgets(output,20,fpointer));
             }else if (strcmp(varName,"INFECTED_SPREADING")==0){
                 myConfig->INFECTED_SPREADING = (unsigned int) atoi(fgets(output,20,fpointer));
+            }else if (strcmp(varName,"THREADS")==0){
+                myConfig->THREADS = (unsigned int) atoi(fgets(output,20,fpointer));
+            }else if (strcmp(varName,"EXPORT")==0){
+                myConfig->THREADS = (unsigned int) atoi(fgets(output,20,fpointer));
             }
         } else{
             j =fgets(output,200,fpointer)!=NULL;
@@ -176,79 +155,113 @@ Config_t* testConfig(Config_t *myConfig) {
         fprintf(stderr,"\n(testConfig) NULL pointer\n");
         return NULL;
     }
-    if(myConfig->CELLS > 10000) {
+    if(myConfig->CELLS > 10000 || myConfig->CELLS <4) {
         fprintf(stderr,"\n(testConfig) CELLS\n");
         return NULL;
     }
-    if(myConfig->STEPS > 5000) {
+    if(myConfig->STEPS > 5000 || myConfig->STEPS <1) {
         fprintf(stderr,"\n(testConfig) STEPS\n");
         return NULL;
     }
-    if(myConfig->EMPTY > 100) {
+    if(myConfig->EMPTY > 100 || myConfig->EMPTY <0) {
         fprintf(stderr,"\n(testConfig) EMPTY\n");
         return NULL;
     }
-    if(myConfig->INFECTED > 100) {
+    if(myConfig->INFECTED > 100 || myConfig->INFECTED <1) {
         fprintf(stderr,"\n(testConfig) INFECTED\n");
         return NULL;
     }
-    if(myConfig->PROTECTED > 100) {
+    if(myConfig->PROTECTED > 100 || myConfig->PROTECTED <0) {
         fprintf(stderr,"\n(testConfig) PROTECTED\n");
         return NULL;
     }
-    if(myConfig->AGING > 1000) {
+    if(myConfig->AGING > 1000 || myConfig->AGING <0) {
         fprintf(stderr,"\n(testConfig) AGING\n");
         return NULL;
     }
-    if(myConfig->BIRTH > 10000) {
+    if(myConfig->BIRTH > 10000 || myConfig->BIRTH <0) {
         fprintf(stderr,"\n(testConfig) BIRTH\n");
         return NULL;
     }
-    if(myConfig->NATURAL_CONTAMINATION > 100) {
+    if(myConfig->NATURAL_CONTAMINATION > 100 || myConfig->NATURAL_CONTAMINATION <0) {
         fprintf(stderr,"\n(testConfig) NATURAL_CONTAMINATION\n");
         return NULL;
     }
-    if(myConfig->INFECTIOUS_CONTAMINATION > 100) {
+    if(myConfig->INFECTIOUS_CONTAMINATION > 100 || myConfig->INFECTIOUS_CONTAMINATION <0) {
         fprintf(stderr,"\n(testConfig) INFECTIOUS_CONTAMINATION\n");
         return NULL;
     }
-    if(myConfig->INFECTED_STEP1 > 50) {
+    if(myConfig->INFECTED_STEP1 > 50 || myConfig->INFECTED_STEP1 <0) {
         fprintf(stderr,"\n(testConfig) INFECTED_STEP1\n");
         return NULL;
     }
-    if(myConfig->INFECTED_STEP2 > 50) {
+    if(myConfig->INFECTED_STEP2 > 50 || myConfig->INFECTED_STEP2 <0) {
         fprintf(stderr,"\n(testConfig) INFECTED_STEP2\n");
         return NULL;
     }
-    if(myConfig->INFECTED_STEP3 > 50) {
+    if(myConfig->INFECTED_STEP3 > 50 || myConfig->INFECTED_STEP3 <0) {
         fprintf(stderr,"\n(testConfig) INFECTED_STEP3\n");
         return NULL;
     }
-    if(myConfig->DEATH_DURATION > 1000) {
+    if(myConfig->DEATH_DURATION > 1000 || myConfig->DEATH_DURATION <0) {
         fprintf(stderr,"\n(testConfig) DEATH_DURATION\n");
         return NULL;
     }
-    if(myConfig->INFECTIOUSNESS1 > 100) {
+    if(myConfig->INFECTIOUSNESS1 > 100 || myConfig->INFECTIOUSNESS1 <0) {
         fprintf(stderr,"\n(testConfig) INFECTIOUSNESS1\n");
         return NULL;
     }
-    if(myConfig->INFECTIOUSNESS2 > 100) {
+    if(myConfig->INFECTIOUSNESS2 > 100 || myConfig->INFECTIOUSNESS2 <0) {
         fprintf(stderr,"\n(testConfig) INFECTIOUSNESS2\n");
         return NULL;
     }
-    if(myConfig->INFECTIOUSNESS3 > 100) {
+    if(myConfig->INFECTIOUSNESS3 > 100 || myConfig->INFECTIOUSNESS3 <0) {
         fprintf(stderr,"\n(testConfig) INFECTIOUSNESS3\n");
         return NULL;
     }
-    if(myConfig->PROTECTION_DURATION > 1000) {
+    if(myConfig->PROTECTION_DURATION > 1000 || myConfig->PROTECTION_DURATION <0) {
         fprintf(stderr,"\n(testConfig) PROTECTION_DURATION\n");
         return NULL;
     }
-    if(myConfig->INFECTED_SPREADING > 100) {
+    if(myConfig->INFECTED_SPREADING > 100 || myConfig->INFECTED_SPREADING <0) {
         fprintf(stderr,"\n(testConfig) INFECTED_SPREADING\n");
+        return NULL;
+    }
+    if(myConfig->THREADS > 16 || myConfig->THREADS <0) {
+        fprintf(stderr,"\n(testConfig) THREADS\n");
+        return NULL;
+    }
+    if(myConfig->EXPORT > 1 || myConfig->THREADS <0) {
+        fprintf(stderr,"\n(testConfig) THREADS\n");
         return NULL;
     }
 
     return myConfig;
+}
+
+void* initExport(Config_t* config) {
+    FILE* backup_file = NULL;
+    if (config->EXPORT==1){
+        backup_file = fopen(EXPORT_FILENAME,"wb");
+        if ( backup_file == NULL ){
+            fprintf(stderr, "\n(initExport) Cannot create the storage file.\n\tBe sure to have a worlds folder in the working directory!\n");
+            return NULL;
+        }
+    } else{
+        return config;
+    }
+    return backup_file;
+}
+
+int closeExport(FILE *backupFile, Config_t* config) {
+
+    if(config->EXPORT ==1){
+        int temp = fclose(backupFile);
+        if (temp!=0){
+            fprintf(stderr, "\n(closeExport) Cannot close the file!\n");
+            return 0;
+        }
+    }
+    return 1;
 }
 

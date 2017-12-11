@@ -17,6 +17,6 @@ pthread_barrier_t childBarrier;
 World_t create_world_t (Config_t* );
 void* all_steps(void *);
 void display_world_t(World_t ,Config_t* );
-void delete_world_t(World_t ,Config_t* );
+void delete_world_t();
 
 #endif //PARALLEL_COMPUTING_PROJECT_WORLD_STRUCTURE_H

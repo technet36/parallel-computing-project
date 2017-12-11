@@ -1,97 +1,116 @@
 
-#include <sys/types.h>
-#include <time.h>
 #include "structures.h"
 #include "world_structure.h"
 #include "read_value.h"
+
 //road to master
 int main(int argc, char** argv) {
 
-    pthread_barrier_init(&allBarrier,NULL,NB_THREAD+1);
-    Config_t myConfig;
 
+    Config_t myConfig;
     if (initConfig(&myConfig)==NULL){
         fprintf(stderr,"\nCouldn't get config, aborting ...\n\n\n");
         exit(EXIT_FAILURE);
     }
-    pthread_t monThread[NB_THREAD];
 
+    if (argc>1)myConfig.CELLS=(unsigned long)atol(argv[1]);
+    if (argc>2)myConfig.STEPS=(unsigned long)atoi(argv[2]);
+    if (argc>3)myConfig.EXPORT=(unsigned int)atoi(argv[3]);
+    if (argc>4)myConfig.THREADS=(unsigned int)atoi(argv[4]);
+
+
+    FILE* exportFile;
+    pthread_barrier_init(&allBarrier,NULL,myConfig.THREADS+1);
+    pthread_t monThread[myConfig.THREADS];
     pthread_attr_t attr;
-    /* Initialize and set thread detached attribute */
+    int currentStep = 0,threadRC,i=0;
+    ThreadParam_t threadParams[myConfig.THREADS];
+    void* status;
+
+    struct timeval start, stop, export_start, export_stop;
+    double startTime=0, stopTime=0, stackExport=0;
+    gettimeofday(&start, NULL);
+    startTime = (start.tv_sec*1E6+start.tv_usec)/1E6;
+
+
+
+
+
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-    if (argc>1)myConfig.CELLS=(unsigned int)atoi(argv[1]);
-    if (argc>2)myConfig.STEPS=(unsigned int)atoi(argv[2]);
-    int currentStep = 0,threadRC;
-    int i=0;
-    int temp,j;
-    unsigned long a ,b;
-    ThreadParam_t threadParams[NB_THREAD];
-    void* status;
-    time_t startTime;
+
+    printf("\n*******************\nNB cells: %lu\nNB steps: %lu\n*******************\n",myConfig.CELLS,myConfig.STEPS);
+
     clean_worlds_dir();
-
-    printf("\nNB cells: %d\nNB steps: %d\n",myConfig.CELLS,myConfig.STEPS);
-    printf("Cleaning worlds folder\n");
-
-    printf("\nProcessing and exporting worlds\n");
-
-#ifdef TRACE
-    printf("\nProcessing step and file writing step %d",currentStep);
-#endif
-    startTime =time(NULL);
-    World_t my_world = create_world_t(&myConfig);
-    World_t tempWorld = create_world_t(&myConfig);
-    if (my_world==NULL){
-        fprintf(stderr,"\nThe world couldn't be created, aborting ...\n\n\n");
-        delete_world_t(my_world,&myConfig);
-        exit(EXIT_FAILURE); /* indicate failure.*/
+    exportFile = initExport(&myConfig);
+    if (exportFile==NULL && myConfig.EXPORT==1){
+        fprintf(stderr,"\nNo file to export into, aborting ...\n\n\n");
+        closeExport(exportFile,&myConfig);
+        exit(EXIT_FAILURE);
     }
-    if(export_world_t(my_world,currentStep ,&myConfig)==0){
-        fprintf(stderr,"\nStep %d couldn't be exported, aborting ...\n\n\n",currentStep);
-        delete_world_t(my_world,&myConfig);
+    printf("\nCreating worlds\n");
+
+    current_world = create_world_t(&myConfig);
+    tempWorld = create_world_t(&myConfig);
+    if (current_world==NULL || tempWorld==NULL){
+        fprintf(stderr,"\nThe world couldn't be created, aborting ...\n\n\n");
+        closeExport(exportFile,&myConfig);
+        delete_world_t();
         exit(EXIT_FAILURE);
     }
     currentStep++;
 
-    for(i=0;i<NB_THREAD;i++){
-        threadParams[i].world = my_world;
+    printf("\nProcessing and exporting worlds\n");
+
+    for(i=0;i<myConfig.THREADS;i++){
+        threadParams[i].world = current_world;
         threadParams[i].tempWorld= tempWorld;
         threadParams[i].config =&myConfig;
         threadParams[i].threadNum=i;
-
         threadRC= pthread_create(&monThread[i], &attr, all_steps, (void *) &threadParams[i]);
-        printf("thread %d launched\n",i);
         if (threadRC) {
-            fprintf(stderr,"ERROR; return code from pthread_create() is %d\n", threadRC);
+            fprintf(stderr,"Couldn't create threads\n");
+            closeExport(exportFile,&myConfig);
+            pthread_barrier_destroy(&allBarrier);
+            delete_world_t();
             exit(EXIT_FAILURE);
         }
     }
     pthread_attr_destroy(&attr);
     while (currentStep < myConfig.STEPS){
-      //  printf("\nProcessing step and file writing step %d\n",currentStep);
-        pthread_barrier_wait(&allBarrier);
-        if(export_world_t(tempWorld,currentStep ,&myConfig)==0){
+        gettimeofday(&export_start,NULL);
+        if(export_world_t(exportFile,&myConfig)==0){
             fprintf(stderr,"\nStep %d couldn't be exported, aborting ...\n\n\n",currentStep);
+            closeExport(exportFile,&myConfig);
+            pthread_barrier_destroy(&allBarrier);
+            delete_world_t();
             exit(EXIT_FAILURE);
-        }
+         }
+        gettimeofday(&export_stop,NULL);
+        stackExport += (export_stop.tv_sec*1E6 +export_stop.tv_usec)-(export_start.tv_sec*1E6 +export_start.tv_usec);
+        pthread_barrier_wait(&allBarrier);
         currentStep++;
     }
+    printf("\nExporting : %.3lf",stackExport/1E6);
 
-    for(i=0; i<NB_THREAD; i++) {
+    for(i=0; i<myConfig.THREADS; i++) {
         threadRC = pthread_join(monThread[i], &status);
         if (threadRC) {
             fprintf(stderr,"ERROR; return code from pthread_join() is %d\n", threadRC);
+            closeExport(exportFile,&myConfig);
+            pthread_barrier_destroy(&allBarrier);
+            delete_world_t();
             exit(EXIT_FAILURE);
         }
     }
 
-    a = startTime;
-    b = (unsigned long)time(NULL);
-    printf(" -- %lu s\n",b-a);
+    closeExport(exportFile,&myConfig);
     pthread_barrier_destroy(&allBarrier);
-    delete_world_t(my_world,&myConfig);
-    delete_world_t(tempWorld,&myConfig);
+    delete_world_t();
+
+    gettimeofday(&stop, NULL);
+    stopTime = (stop.tv_sec*1E6 +stop.tv_usec)/1E6;
+    printf("\n*****************\nTotal -- %.3lf\n\n",stopTime-startTime);
   return 0;
 }
